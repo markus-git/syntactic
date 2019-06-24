@@ -33,12 +33,12 @@ class Ext ext orig
     -- | Return the amount by which an environment has been extended
     diff :: Num a => Proxy ext -> Proxy orig -> a
 
-instance {-# OVERLAPPING #-} Ext env env
+instance {-# OVERLAPS #-} Ext env env
   where
     unext = id
     diff _ _ = 0
 
-instance {-# OVERLAPPING #-} (Ext env e, ext ~ (a,env)) => Ext ext e
+instance {-# OVERLAPS #-} (Ext env e, ext ~ (a,env)) => Ext ext e
   where
     unext = unext . snd
     diff m n = diff (fmap snd m) n + 1
@@ -68,8 +68,8 @@ instance Symbol BindingWS
 
 instance NFData1 BindingWS
   where
-    liftRnf _ (VarWS Proxy) = ()
-    liftRnf _ LamWS         = ()
+    rnf1 (VarWS Proxy) = ()
+    rnf1 LamWS         = ()
 
 instance Eval BindingWS
   where

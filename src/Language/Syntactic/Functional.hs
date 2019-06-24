@@ -68,7 +68,7 @@ module Language.Syntactic.Functional
 #else
 import Control.Applicative
 #endif
-import Control.DeepSeq
+import Control.DeepSeq (NFData (..))
 import Control.Monad.Cont
 import Control.Monad.Reader
 import Control.Monad.State
@@ -87,9 +87,9 @@ import Language.Syntactic
 
 
 
---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 -- * Syntactic constructs
---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 
 -- | Literal
 data Literal sig
@@ -155,8 +155,8 @@ instance Symbol Binding
 
 instance NFData1 Binding
   where
-    liftRnf _ (Var v) = rnf v
-    liftRnf _ (Lam v) = rnf v
+    rnf1 (Var v) = rnf v
+    rnf1 (Lam v) = rnf v
 
 -- | 'equal' does strict identifier comparison; i.e. no alpha equivalence.
 --
@@ -255,8 +255,8 @@ instance Symbol BindingT
 
 instance NFData1 BindingT
   where
-    liftRnf _ (VarT v) = rnf v
-    liftRnf _ (LamT v) = rnf v
+    rnf1 (VarT v) = rnf v
+    rnf1 (LamT v) = rnf v
 
 -- | 'equal' does strict identifier comparison; i.e. no alpha equivalence.
 --
@@ -390,11 +390,15 @@ instance {-# OVERLAPPING #-} BindingDomain BindingT
     renameBind re (VarT v) = VarT $ re v
     renameBind re (LamT v) = LamT $ re v
 
-instance {-# OVERLAPPING #-} BindingDomain sym
+instance {-# OVERLAPPABLE #-} BindingDomain sym
   where
     prVar _ = Nothing
     prLam _ = Nothing
     renameBind _ a = a
+  -- This instance seems to overlap all others on GHC 8.2.2. This leads to
+  -- failures in the test suite. Removing the instance and declaring one
+  -- instance per type solves the problem. Earlier and later GHC versions don't
+  -- have this problem, so I assume it's a bug in 8.2.
 
 -- | A symbol for let bindings
 --
@@ -546,10 +550,11 @@ freshVars as = go 0 as
 
 freshVar :: MonadState [Name] m => m Name
 freshVar = do
-    vars <- get
-    case vars of
-      []   -> error "no fresh var. available."
-      v:vs -> do put vs; return v
+    vs <- get
+    case vs of
+      v:vs' -> do
+        put vs'
+        return v
 
 -- | Rename the bound variables in a term
 --
@@ -586,9 +591,9 @@ renameUnique = renameUnique' []
 
 
 
---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 -- * Alpha-equivalence
---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 
 -- | Environment used by 'alphaEq''
 type AlphaEnv = [(Name,Name)]
@@ -633,9 +638,9 @@ alphaEq = alphaEq' []
 
 
 
---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 -- * Evaluation
---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
 
 -- | Semantic function type of the given symbol signature
 type family   Denotation sig

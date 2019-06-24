@@ -1,9 +1,12 @@
 Name:           syntactic
-Version:        3.7.1
+Version:        3.8.1
 Synopsis:       Generic representation and manipulation of abstract syntax
 Description:    The library provides a generic representation of type-indexed abstract syntax trees
                 (or indexed data types in general). It also permits the definition of open syntax
                 trees based on the technique in Data Types à la Carte [1].
+                .
+                This package does not work on GHC version 8.2, but works on many
+                earlier and later versions.
                 .
                 (Note that the difference between version 2.x and 3.0 is not that big. The bump to
                 3.0 was done because the modules changed namespace.)
@@ -14,6 +17,9 @@ Description:    The library provides a generic representation of type-indexed ab
                 .
                   * Paper:
                     <https://emilaxelsson.github.io/documents/axelsson2012generic.pdf>
+                .
+                  * Literal source:
+                    <https://emilaxelsson.github.io/documents/axelsson2012generic.lhs>
                 .
                   * Slides:
                     <https://emilaxelsson.github.io/documents/axelsson2012generic-slides.pdf>
@@ -77,14 +83,20 @@ library
       Language.Syntactic.Sugar.TupleTyped
 
   build-depends:
-    base >= 4.6 && < 5,
-    constraints,
-    containers,
-    data-hash,
-    deepseq >= 1.4.3.0,
-    mtl >= 2 && < 3,
-    syb,
-    tree-view >= 0.5
+    base >= 4.6 && < 4.13,
+    constraints < 0.11,
+    containers < 0.7,
+    data-hash < 0.3,
+    deepseq < 1.5,
+    mtl >= 2 && < 2.3,
+    syb < 0.8,
+    tree-view >= 0.5 && < 0.6
+
+  if impl(ghc == 8.2.*)
+    build-depends: base<0
+    -- See the note to the catch-all instance of `BindingDomain`. Since this can
+    -- lead to subtle errors and non-termination in user code, we prefer not to
+    -- support GHC 8.2.
 
   if impl(ghc < 7.10)
     build-depends: base-orphans
@@ -127,6 +139,17 @@ test-suite examples
 
   main-is: Tests.hs
 
+  other-modules: AlgorithmTests
+                 Monad
+                 MonadTests
+                 NanoFeldspar
+                 NanoFeldsparComp
+                 NanoFeldsparTests
+                 SyntaxTests
+                 TH
+                 WellScoped
+                 WellScopedTests
+
   default-language: Haskell2010
 
   build-depends:
@@ -137,6 +160,7 @@ test-suite examples
     QuickCheck,
     tagged,
     tasty,
+    tasty-hunit,
     tasty-golden,
     tasty-quickcheck,
     tasty-th,
@@ -148,6 +172,10 @@ benchmark syntactic-bench
   hs-source-dirs: benchmarks
 
   main-is: MainBenchmark.hs
+
+  other-modules: JoiningTypes
+                 Normal
+                 WithArity
 
   build-depends:
     base,
