@@ -59,7 +59,7 @@ module Language.Syntactic.Syntax
 
 
 
-import Control.DeepSeq
+import Control.DeepSeq (NFData (..))
 import Data.Typeable
 #if MIN_VERSION_GLASGOW_HASKELL(7,10,0,0)
 #else
@@ -142,7 +142,7 @@ class Symbol sym
 
 instance NFData1 sym => NFData (AST sym sig)
   where
-    rnf (Sym s)  = liftRnf (`seq` ()) s
+    rnf (Sym s)  = rnf1 s
     rnf (s :$ a) = rnf s `seq` rnf a
 
 -- | Count the number of symbols in an 'AST'
@@ -215,8 +215,8 @@ instance (Symbol sym1, Symbol sym2) => Symbol (sym1 :+: sym2)
 
 instance (NFData1 sym1, NFData1 sym2) => NFData1 (sym1 :+: sym2)
   where
-    liftRnf r (InjL s) = liftRnf r s
-    liftRnf r (InjR s) = liftRnf r s
+    rnf1 (InjL s) = rnf1 s
+    rnf1 (InjR s) = rnf1 s
 
 -- | Symbol projection
 --
@@ -227,29 +227,25 @@ class Project sub sup
     -- | Partial projection from @sup@ to @sub@
     prj :: sup a -> Maybe (sub a)
 
-instance {-# OVERLAPPING #-} Project sub sup => Project sub (AST sup)
+instance Project sub sup => Project sub (AST sup)
   where
     prj (Sym s) = prj s
     prj _       = Nothing
 
-instance {-# OVERLAPPING #-} Project sym sym
+instance {-# OVERLAPS #-} Project sym sym
   where
     prj = Just
 
-instance {-# OVERLAPPING #-} Project sym1 (sym1 :+: sym2)
+instance {-# OVERLAPS #-} Project sym1 (sym1 :+: sym2)
   where
     prj (InjL a) = Just a
     prj _        = Nothing
 
-instance {-# OVERLAPPING #-} Project sym1 sym3 => Project sym1 (sym2 :+: sym3)
+instance {-# OVERLAPS #-} Project sym1 sym3 => Project sym1 (sym2 :+: sym3)
   where
     prj (InjR a) = prj a
     prj _        = Nothing
 
--- | If @sub@ is not in @sup@, 'prj' always returns 'Nothing'.
-instance Project sub sup
-  where
-    prj _ = Nothing
 
 -- | Symbol injection
 --
@@ -259,19 +255,19 @@ class Project sub sup => sub :<: sup
     -- | Injection from @sub@ to @sup@
     inj :: sub a -> sup a
 
-instance {-# OVERLAPPING #-} (sub :<: sup) => (sub :<: AST sup)
+instance {-# OVERLAPS #-} (sub :<: sup) => (sub :<: AST sup)
   where
     inj = Sym . inj
 
-instance {-# OVERLAPPING #-} (sym :<: sym)
+instance {-# OVERLAPS #-} (sym :<: sym)
   where
     inj = id
 
-instance {-# OVERLAPPING #-} (sym1 :<: (sym1 :+: sym2))
+instance {-# OVERLAPS #-} (sym1 :<: (sym1 :+: sym2))
   where
     inj = InjL
 
-instance {-# OVERLAPPING #-} (sym1 :<: sym3) => (sym1 :<: (sym2 :+: sym3))
+instance {-# OVERLAPS #-} (sym1 :<: sym3) => (sym1 :<: (sym2 :+: sym3))
   where
     inj = InjR . inj
 
@@ -359,7 +355,7 @@ data Typed sym sig
   where
     Typed :: Typeable (DenResult sig) => sym sig -> Typed sym sig
 
-instance {-# OVERLAPPING #-} Project sub sup => Project sub (Typed sup)
+instance Project sub sup => Project sub (Typed sup)
   where
     prj (Typed s) = prj s
 
@@ -397,6 +393,13 @@ castExpr a b = cast1 a
 --------------------------------------------------------------------------------
 -- * Misc.
 --------------------------------------------------------------------------------
+
+-- | Higher-kinded version of 'NFData'
+class NFData1 c
+  where
+    -- | Force a symbol to normal form
+    rnf1 :: c a -> ()
+    rnf1 s = s `seq` ()
 
 -- | Constrain a symbol to a specific type
 symType :: Proxy sym -> sym sig -> sym sig
